@@ -115,6 +115,31 @@ export function WholesaleContent({ minOrderPacks }: { minOrderPacks: number }) {
         </aside>
       </div>
 
+      <section className="mt-12 rounded-2xl bg-cyan px-5 py-5 sm:px-7 sm:py-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
+              Dyno Snus wholesale
+            </p>
+            <h2 className="mt-1 font-display text-2xl leading-tight text-white sm:text-3xl">
+              Ready for wholesale next steps?
+            </h2>
+            <p className="mt-1 max-w-xl text-sm text-white/90">
+              Share your licensed retail details and our team will follow up
+              with account setup guidance.
+            </p>
+          </div>
+          <Button
+            size="lg"
+            variant="secondary"
+            className="w-full shrink-0 whitespace-nowrap sm:w-auto"
+            onClick={() => setOpen(true)}
+          >
+            Wholesale inquiry now
+          </Button>
+        </div>
+      </section>
+
       {open ? (
         <div
           className="fixed inset-0 z-[90] flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm animate-fade sm:items-center sm:p-4"
