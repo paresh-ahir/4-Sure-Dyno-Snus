@@ -25,17 +25,21 @@ const collections = {
 
 for (const [name, docs] of Object.entries(collections)) {
   const collection = db.collection(name);
-  const count = await collection.countDocuments();
-  if (count > 0) {
-    console.log(`${name}: already has ${count}, skipped`);
-    continue;
-  }
   if (!docs.length) {
     console.log(`${name}: empty source, skipped`);
     continue;
   }
-  await collection.insertMany(docs);
-  console.log(`${name}: inserted ${docs.length}`);
+  const missing = [];
+  for (const doc of docs) {
+    const existing = doc.id ? await collection.findOne({ id: doc.id }) : null;
+    if (!existing) missing.push(doc);
+  }
+  if (!missing.length) {
+    console.log(`${name}: all ${docs.length} already present, skipped`);
+    continue;
+  }
+  await collection.insertMany(missing);
+  console.log(`${name}: inserted ${missing.length}, kept ${docs.length - missing.length}`);
 }
 
 await db.collection("products").createIndex({ slug: 1 }, { unique: true });
