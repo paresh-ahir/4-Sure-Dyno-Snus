@@ -29,6 +29,7 @@ export interface Product {
   overviewImage: string;
   active: boolean;
   sortOrder: number;
+  trashedAt?: string | null;
 }
 
 export interface ProvincePricing {
@@ -105,6 +106,7 @@ export interface User {
   profileAudit?: ProfileAuditEntry[];
   createdAt: string;
   active: boolean;
+  trashedAt?: string | null;
 }
 
 export interface AdminNotice {
@@ -175,6 +177,7 @@ export interface Order {
   invoiceOverrides?: InvoiceOverrides;
   createdAt: string;
   updatedAt: string;
+  trashedAt?: string | null;
 }
 
 export interface ContactLead {
@@ -187,6 +190,7 @@ export interface ContactLead {
   message: string;
   createdAt: string;
   status: "new" | "contacted" | "closed";
+  trashedAt?: string | null;
 }
 
 export interface WholesaleInquiry {
@@ -201,6 +205,7 @@ export interface WholesaleInquiry {
   message: string;
   createdAt: string;
   status: "new" | "contacted" | "closed";
+  trashedAt?: string | null;
 }
 
 export interface Blog {
@@ -214,6 +219,7 @@ export interface Blog {
   imageTwo?: string;
   createdAt: string;
   updatedAt: string;
+  trashedAt?: string | null;
 }
 
 export interface Faq {
@@ -224,6 +230,7 @@ export interface Faq {
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
+  trashedAt?: string | null;
 }
 
 export interface SiteContent {
@@ -232,6 +239,7 @@ export interface SiteContent {
   tagline: string;
   phone: string;
   email: string;
+  emails?: string[];
   website: string;
   address: string;
   salesContact: string;

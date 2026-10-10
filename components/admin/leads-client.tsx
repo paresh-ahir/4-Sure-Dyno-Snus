@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashAction, TrashBinButton, setTrash } from "@/components/admin/trash-bin";
 import { FilterBar, matchesQuery } from "@/components/ui/filter-bar";
 import { Select } from "@/components/ui/select";
 import type { ContactLead } from "@/lib/types";
@@ -9,10 +10,13 @@ import { useState } from "react";
 
 export function AdminLeadsClient({ leads }: { leads: ContactLead[] }) {
   const router = useRouter();
+  const [rows, setRows] = useState(leads);
+  const [bin, setBin] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
-  const visible = leads.filter(
+  const pool = rows.filter((lead) => (bin ? lead.trashedAt : !lead.trashedAt));
+  const visible = pool.filter(
     (lead) =>
       (!status || lead.status === status) &&
       matchesQuery(
@@ -40,8 +44,31 @@ export function AdminLeadsClient({ leads }: { leads: ContactLead[] }) {
     router.refresh();
   }
 
+  async function onTrash(id: string, restore = false) {
+    if (!restore && !confirm("Move this lead to trash?")) return;
+    setBusy(id);
+    try {
+      await setTrash("lead", id, restore);
+    } catch {
+      setBusy(null);
+      return;
+    }
+    setBusy(null);
+    const stamp = restore ? null : new Date().toISOString();
+    setRows((current) =>
+      current.map((lead) => (lead.id === id ? { ...lead, trashedAt: stamp } : lead))
+    );
+  }
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <TrashBinButton
+          open={bin}
+          count={rows.filter((lead) => lead.trashedAt).length}
+          onToggle={() => setBin((current) => !current)}
+        />
+      </div>
       <FilterBar
         query={query}
         onQuery={setQuery}
@@ -83,6 +110,12 @@ export function AdminLeadsClient({ leads }: { leads: ContactLead[] }) {
               <option value="contacted">contacted</option>
               <option value="closed">closed</option>
             </Select>
+            <TrashAction
+              trashed={Boolean(lead.trashedAt)}
+              busy={busy === lead.id}
+              onTrash={() => onTrash(lead.id)}
+              onRestore={() => onTrash(lead.id, true)}
+            />
           </div>
           <p className="mt-3 text-sm leading-relaxed text-white/90">
             {lead.message}
@@ -91,7 +124,11 @@ export function AdminLeadsClient({ leads }: { leads: ContactLead[] }) {
       ))}
       {visible.length === 0 && (
         <p className="text-sm text-white/70">
-          {leads.length === 0 ? "No contact inquiries yet." : "Nothing matches this filter."}
+          {pool.length === 0
+            ? bin
+              ? "Trash is empty."
+              : "No contact inquiries yet."
+            : "Nothing matches this filter."}
         </p>
       )}
     </div>

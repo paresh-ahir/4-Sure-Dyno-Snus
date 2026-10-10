@@ -17,7 +17,7 @@ export default async function FaqPage() {
 
   return (
     <SiteShell>
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <Badge>FAQ</Badge>
         <h1 className="mt-3 font-display text-4xl text-navy sm:text-5xl">
           Everything you need to know

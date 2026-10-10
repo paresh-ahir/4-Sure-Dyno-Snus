@@ -6,14 +6,13 @@ import { redirect } from "next/navigation";
 export default async function AdminProductsPage() {
   const session = await requireSession("admin");
   if (!session) redirect("/admin/login");
-  const products = await getProducts(false);
+  const products = await getProducts(false, "all");
 
   return (
     <div>
       <h1 className="font-display text-3xl text-white">Products</h1>
       <p className="mt-2 text-sm text-slate-ink">
-        List, add, edit, and delete Dyno catalogue items — including product
-        photos.
+        List, add, and edit Dyno catalogue items. Removed products stay in Trash.
       </p>
       <div className="mt-6">
         <AdminProductsClient products={products} />

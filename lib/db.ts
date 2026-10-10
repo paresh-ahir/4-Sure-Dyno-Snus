@@ -17,6 +17,17 @@ import type {
 
 type WithMongoId<T> = T & { _id?: unknown };
 
+export type ListScope = "active" | "trash" | "all";
+
+function scopedFilter(
+  base: Record<string, unknown>,
+  scope: ListScope = "active"
+) {
+  if (scope === "all") return base;
+  if (scope === "trash") return { ...base, trashedAt: { $type: "string" } };
+  return { ...base, trashedAt: null };
+}
+
 function strip<T>(doc: WithMongoId<T> | null): T | null {
   if (!doc) return null;
   const { _id: _ignored, ...rest } = doc;
@@ -36,15 +47,26 @@ export async function getSite() {
   return strip(site)!;
 }
 
-export async function getProducts(activeOnly = true) {
+export async function updateSite(patch: Partial<SiteContent>) {
+  const site = await collection<SiteContent & { id: string }>("site");
+  const updated = await site.findOneAndUpdate(
+    { id: "site" },
+    { $set: patch },
+    { returnDocument: "after" }
+  );
+  if (!updated) throw new Error("Site settings are missing");
+  return strip(updated)!;
+}
+
+export async function getProducts(activeOnly = true, scope: ListScope = "active") {
   const products = await collection<Product>("products");
-  const filter = activeOnly ? { active: true } : {};
+  const filter = scopedFilter(activeOnly ? { active: true } : {}, scope);
   return products.find(filter).sort({ sortOrder: 1 }).toArray().then((rows) => rows.map((row) => strip(row)!));
 }
 
 export async function getProductBySlug(slug: string) {
   const products = await collection<Product>("products");
-  return strip(await products.findOne({ slug }));
+  return strip(await products.findOne({ slug, trashedAt: null }));
 }
 
 export async function getProductById(id: string) {
@@ -82,9 +104,8 @@ export async function createProduct(
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {
-  const products = await collection<Product>("products");
-  const result = await products.deleteOne({ id });
-  return result.deletedCount === 1;
+  const product = await updateProduct(id, { trashedAt: new Date().toISOString() });
+  return Boolean(product);
 }
 
 export async function getPricing(provinceCode?: string) {
@@ -196,9 +217,9 @@ export async function markAdminNoticeRead(id: string) {
   await notices.updateOne({ id }, { $set: { read: true } });
 }
 
-export async function getOrders(userId?: string) {
+export async function getOrders(userId?: string, scope: ListScope = "active") {
   const orders = await collection<Order>("orders");
-  const filter = userId ? { userId } : {};
+  const filter = scopedFilter(userId ? { userId } : {}, scope);
   const rows = await orders.find(filter).sort({ createdAt: -1 }).toArray();
   return rows.map((row) => strip(row)!);
 }
@@ -235,9 +256,12 @@ export async function updateOrder(id: string, patch: Partial<Order>) {
   return strip(updated);
 }
 
-export async function getLeads() {
+export async function getLeads(scope: ListScope = "active") {
   const leads = await collection<ContactLead>("leads");
-  const rows = await leads.find().sort({ createdAt: -1 }).toArray();
+  const rows = await leads
+    .find(scopedFilter({}, scope))
+    .sort({ createdAt: -1 })
+    .toArray();
   return rows.map((row) => strip(row)!);
 }
 
@@ -265,11 +289,11 @@ export async function updateLead(id: string, patch: Partial<ContactLead>) {
   return strip(updated);
 }
 
-export async function getWholesaleInquiries() {
+export async function getWholesaleInquiries(scope: ListScope = "active") {
   const rows = await (
     await collection<WholesaleInquiry>("wholesaleInquiries")
   )
-    .find()
+    .find(scopedFilter({}, scope))
     .sort({ createdAt: -1 })
     .toArray();
   return rows.map((row) => strip(row)!);
@@ -302,16 +326,16 @@ export async function updateWholesaleInquiry(
   return strip(updated);
 }
 
-export async function getBlogs(publishedOnly = true) {
+export async function getBlogs(publishedOnly = true, scope: ListScope = "active") {
   const blogs = await collection<Blog>("blogs");
-  const filter = publishedOnly ? { published: true } : {};
+  const filter = scopedFilter(publishedOnly ? { published: true } : {}, scope);
   const rows = await blogs.find(filter).sort({ createdAt: -1 }).toArray();
   return rows.map((row) => strip(row)!);
 }
 
 export async function getBlogBySlug(slug: string) {
   const blogs = await collection<Blog>("blogs");
-  return strip(await blogs.findOne({ slug }));
+  return strip(await blogs.findOne({ slug, trashedAt: null }));
 }
 
 export async function getBlogById(id: string) {
@@ -351,14 +375,13 @@ export async function updateBlog(id: string, patch: Partial<Blog>) {
 }
 
 export async function deleteBlog(id: string) {
-  const blogs = await collection<Blog>("blogs");
-  const result = await blogs.deleteOne({ id });
-  return result.deletedCount === 1;
+  const blog = await updateBlog(id, { trashedAt: new Date().toISOString() });
+  return Boolean(blog);
 }
 
-export async function getFaqs(publishedOnly = true) {
+export async function getFaqs(publishedOnly = true, scope: ListScope = "active") {
   const faqs = await collection<Faq>("faqs");
-  const filter = publishedOnly ? { published: true } : {};
+  const filter = scopedFilter(publishedOnly ? { published: true } : {}, scope);
   const rows = await faqs
     .find(filter)
     .sort({ sortOrder: 1, createdAt: 1 })
@@ -407,9 +430,8 @@ export async function updateFaq(id: string, patch: Partial<Faq>) {
 }
 
 export async function deleteFaq(id: string) {
-  const faqs = await collection<Faq>("faqs");
-  const result = await faqs.deleteOne({ id });
-  return result.deletedCount === 1;
+  const faq = await updateFaq(id, { trashedAt: new Date().toISOString() });
+  return Boolean(faq);
 }
 
 export async function getDashboardStats() {
@@ -421,7 +443,7 @@ export async function getDashboardStats() {
       getLeads(),
       getWholesaleInquiries(),
     ]);
-  const retailers = users.filter((user) => user.role === "retailer");
+  const retailers = users.filter((user) => user.role === "retailer" && !user.trashedAt);
   const revenue = orders
     .filter((order) => order.status !== "cancelled")
     .reduce((sum, order) => sum + order.total, 0);

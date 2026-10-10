@@ -83,7 +83,22 @@ export const COMPANY_EMAILS = [
 
 const HIDDEN_EMAILS = ["octavio4sure@gmail.com"];
 
-export function contactEmails(primary?: string) {
+export function contactEmails(primary?: string, saved?: string[]) {
+  const listed = (saved || []).map((email) => email.trim()).filter(Boolean);
+  if (listed.length > 0) {
+    const chosen: string[] = [];
+    for (const email of listed) {
+      const hidden = HIDDEN_EMAILS.some(
+        (item) => item.toLowerCase() === email.toLowerCase()
+      );
+      const duplicate = chosen.some(
+        (item) => item.toLowerCase() === email.toLowerCase()
+      );
+      if (!hidden && !duplicate) chosen.push(email);
+    }
+    if (chosen.length > 0) return chosen;
+  }
+
   const emails: string[] = [...COMPANY_EMAILS];
   const extra = primary?.trim();
   if (
@@ -94,4 +109,8 @@ export function contactEmails(primary?: string) {
     emails.push(extra);
   }
   return emails;
+}
+
+export function publicEmails(site: { email?: string; emails?: string[] }) {
+  return contactEmails(site.email, site.emails);
 }

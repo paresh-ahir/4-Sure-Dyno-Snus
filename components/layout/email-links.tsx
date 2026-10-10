@@ -2,14 +2,16 @@ import { contactEmails } from "@/lib/site";
 
 export function EmailLinks({
   primary,
+  emails: saved,
   className,
   separator = "line",
 }: {
   primary?: string;
+  emails?: string[];
   className?: string;
   separator?: "line" | "dot";
 }) {
-  const emails = contactEmails(primary);
+  const emails = contactEmails(primary, saved);
 
   return (
     <>

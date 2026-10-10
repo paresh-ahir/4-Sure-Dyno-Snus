@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashAction, TrashBinButton, setTrash } from "@/components/admin/trash-bin";
 import { FilterBar, matchesQuery } from "@/components/ui/filter-bar";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
@@ -84,6 +85,7 @@ export function AdminProductsClient({ products }: { products: Product[] }) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [bin, setBin] = useState(false);
 
   function openCreate() {
     setMode("create");
@@ -175,20 +177,23 @@ export function AdminProductsClient({ products }: { products: Product[] }) {
     }
   }
 
-  async function onDelete(id: string) {
-    if (!confirm("Delete this product permanently?")) return;
+  async function onTrash(id: string, restore = false) {
+    if (!restore && !confirm("Move this product to trash?")) return;
     setBusy(true);
     setError("");
-    const res = await fetch(`/api/admin/products/${id}`, { method: "DELETE" });
-    setBusy(false);
-    if (!res.ok) {
-      setError("Delete failed");
+    try {
+      await setTrash("product", id, restore);
+    } catch {
+      setBusy(false);
+      setError(restore ? "Could not restore the product." : "Could not move the product to trash.");
       return;
     }
-    const next = rows.filter((p) => p.id !== id);
+    setBusy(false);
+    const stamp = restore ? null : new Date().toISOString();
+    const next = rows.map((row) => (row.id === id ? { ...row, trashedAt: stamp } : row));
     setRows(next);
-    setMessage("Product deleted");
-    if (editingId === id) backToList(next);
+    setMessage(restore ? "Product restored" : "Product moved to trash");
+    if (!restore && editingId === id) backToList(next);
     await refreshList();
   }
 
@@ -265,7 +270,8 @@ export function AdminProductsClient({ products }: { products: Product[] }) {
   }
 
   if (mode === "list") {
-    const visible = rows.filter(
+    const pool = rows.filter((product) => (bin ? product.trashedAt : !product.trashedAt));
+    const visible = pool.filter(
       (product) =>
         (!status || (status === "active" ? product.active : !product.active)) &&
         matchesQuery(query, product.name, product.shortName, product.flavour, product.slug)
@@ -274,11 +280,21 @@ export function AdminProductsClient({ products }: { products: Product[] }) {
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-ink">
-            {rows.length} product{rows.length === 1 ? "" : "s"} in catalogue
+            {pool.length} product{pool.length === 1 ? "" : "s"}
+            {bin ? " in trash" : " in catalogue"}
           </p>
-          <Button onClick={openCreate}>
-            <Plus size={16} /> Add product
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <TrashBinButton
+              open={bin}
+              count={rows.filter((product) => product.trashedAt).length}
+              onToggle={() => setBin((current) => !current)}
+            />
+            {!bin && (
+              <Button onClick={openCreate}>
+                <Plus size={16} /> Add product
+              </Button>
+            )}
+          </div>
         </div>
         {message && <p className="text-sm text-cyan">{message}</p>}
         {error && <p className="text-sm text-warn-red">{error}</p>}
@@ -341,21 +357,21 @@ export function AdminProductsClient({ products }: { products: Product[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEdit(product)}
-                      >
-                        <Pencil size={14} /> Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => onDelete(product.id)}
-                        disabled={busy}
-                      >
-                        <Trash2 size={14} /> Delete
-                      </Button>
+                      {!bin && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEdit(product)}
+                        >
+                          <Pencil size={14} /> Edit
+                        </Button>
+                      )}
+                      <TrashAction
+                        trashed={Boolean(product.trashedAt)}
+                        busy={busy}
+                        onTrash={() => onTrash(product.id)}
+                        onRestore={() => onTrash(product.id, true)}
+                      />
                     </div>
                   </td>
                 </tr>
@@ -366,8 +382,10 @@ export function AdminProductsClient({ products }: { products: Product[] }) {
                     colSpan={5}
                     className="px-4 py-10 text-center text-slate-ink"
                   >
-                    {rows.length === 0
-                      ? "No products yet. Add your first SKU."
+                    {pool.length === 0
+                      ? bin
+                        ? "Trash is empty."
+                        : "No products yet. Add your first SKU."
                       : "Nothing matches this filter."}
                   </td>
                 </tr>
@@ -603,9 +621,9 @@ export function AdminProductsClient({ products }: { products: Product[] }) {
             type="button"
             variant="danger"
             disabled={busy}
-            onClick={() => onDelete(editingId)}
+            onClick={() => onTrash(editingId)}
           >
-            <Trash2 size={14} /> Delete product
+            <Trash2 size={14} /> Move to trash
           </Button>
         )}
       </div>

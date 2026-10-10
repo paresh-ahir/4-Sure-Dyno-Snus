@@ -26,6 +26,7 @@ const adminLinks = [
   { href: "/admin/wholesale-inquiries", label: "Wholesale Inquiry" },
   { href: "/admin/blogs", label: "Blogs" },
   { href: "/admin/faqs", label: "FAQ" },
+  { href: "/admin/profile", label: "Profile" },
 ];
 
 export function PanelNav({

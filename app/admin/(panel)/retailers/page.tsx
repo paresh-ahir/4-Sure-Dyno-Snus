@@ -20,6 +20,7 @@ export default async function AdminRetailersPage() {
       phone: user.phone || "",
       joined: formatDate(user.createdAt),
       status: profileStatus(user),
+      trashedAt: user.trashedAt || null,
     }));
 
   return (

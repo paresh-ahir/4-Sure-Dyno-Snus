@@ -50,13 +50,20 @@ export function InvoiceDocument({
   canEdit = false,
   backHref,
   backLabel,
+  contact,
 }: {
   invoice: InvoiceDocumentModel;
   orderId?: string;
   canEdit?: boolean;
   backHref: string;
   backLabel: string;
+  contact?: { address: string; phone: string; email: string };
 }) {
+  const letterhead = {
+    address: contact?.address || INVOICE_LETTERHEAD.address,
+    phone: contact?.phone || INVOICE_LETTERHEAD.phone,
+    email: contact?.email || INVOICE_LETTERHEAD.email,
+  };
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => draftFrom(invoice));
@@ -196,9 +203,9 @@ export function InvoiceDocument({
               priority
             />
             <div className="mt-4 space-y-0.5 text-sm text-[#3d4a5c]">
-              <p>{INVOICE_LETTERHEAD.address}</p>
-              <p>{INVOICE_LETTERHEAD.email}</p>
-              <p>{INVOICE_LETTERHEAD.phone}</p>
+              <p>{letterhead.address}</p>
+              <p>{letterhead.email}</p>
+              <p>{letterhead.phone}</p>
             </div>
           </div>
           <div className="min-w-[180px] text-left sm:text-right">
@@ -491,7 +498,7 @@ export function InvoiceDocument({
 
         <div className="mt-8 border-t border-[#e6ebf1] pt-4 text-sm">
           <p className="font-semibold text-[#163a62]">Payment via E-transfer</p>
-          <p className="mt-1">{INVOICE_LETTERHEAD.email}</p>
+          <p className="mt-1">{letterhead.email}</p>
           <p className="mt-3 text-xs leading-5 text-[#5c6b7d]">
             Notice: {INVOICE_LETTERHEAD.notice}
           </p>

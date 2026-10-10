@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashAction, TrashBinButton, setTrash } from "@/components/admin/trash-bin";
 import { FilterBar, matchesQuery } from "@/components/ui/filter-bar";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
@@ -9,7 +10,7 @@ import type { FieldErrors } from "@/lib/form-errors";
 import { blogSchema } from "@/lib/form-schemas";
 import type { Blog } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
@@ -57,6 +58,7 @@ export function AdminBlogsClient({ blogs }: { blogs: Blog[] }) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [bin, setBin] = useState(false);
 
   function openCreate() {
     setMode("create");
@@ -131,23 +133,27 @@ export function AdminBlogsClient({ blogs }: { blogs: Blog[] }) {
     }
   }
 
-  async function onDelete(id: string) {
-    if (!confirm("Delete this blog post?")) return;
+  async function onTrash(id: string, restore = false) {
+    if (!restore && !confirm("Move this blog post to trash?")) return;
     setBusy(true);
     setError("");
-    const res = await fetch(`/api/admin/blogs/${id}`, { method: "DELETE" });
-    setBusy(false);
-    if (!res.ok) {
-      setError("Delete failed");
+    try {
+      await setTrash("blog", id, restore);
+    } catch {
+      setBusy(false);
+      setError(restore ? "Could not restore the post." : "Could not move the post to trash.");
       return;
     }
-    setRows((prev) => prev.filter((row) => row.id !== id));
-    setMessage("Blog post deleted");
+    setBusy(false);
+    const stamp = restore ? null : new Date().toISOString();
+    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, trashedAt: stamp } : row)));
+    setMessage(restore ? "Blog post restored" : "Blog post moved to trash");
     router.refresh();
   }
 
   if (mode === "list") {
-    const visible = rows.filter(
+    const pool = rows.filter((blog) => (bin ? blog.trashedAt : !blog.trashedAt));
+    const visible = pool.filter(
       (blog) =>
         (!status || (status === "published" ? blog.published : !blog.published)) &&
         matchesQuery(query, blog.title, blog.excerpt)
@@ -156,11 +162,21 @@ export function AdminBlogsClient({ blogs }: { blogs: Blog[] }) {
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-ink">
-            {rows.length} post{rows.length === 1 ? "" : "s"}
+            {pool.length} post{pool.length === 1 ? "" : "s"}
+            {bin ? " in trash" : ""}
           </p>
-          <Button onClick={openCreate}>
-            <Plus size={16} /> Add blog
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <TrashBinButton
+              open={bin}
+              count={rows.filter((blog) => blog.trashedAt).length}
+              onToggle={() => setBin((current) => !current)}
+            />
+            {!bin && (
+              <Button onClick={openCreate}>
+                <Plus size={16} /> Add blog
+              </Button>
+            )}
+          </div>
         </div>
         {message && <p className="text-sm text-cyan">{message}</p>}
         {error && <p className="text-sm text-warn-red">{error}</p>}
@@ -188,23 +204,27 @@ export function AdminBlogsClient({ blogs }: { blogs: Blog[] }) {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => openEdit(blog)}>
-                  <Pencil size={14} /> Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => onDelete(blog.id)}
-                  disabled={busy}
-                >
-                  <Trash2 size={14} /> Delete
-                </Button>
+                {!bin && (
+                  <Button size="sm" variant="outline" onClick={() => openEdit(blog)}>
+                    <Pencil size={14} /> Edit
+                  </Button>
+                )}
+                <TrashAction
+                  trashed={Boolean(blog.trashedAt)}
+                  busy={busy}
+                  onTrash={() => onTrash(blog.id)}
+                  onRestore={() => onTrash(blog.id, true)}
+                />
               </div>
             </article>
           ))}
           {visible.length === 0 && (
             <p className="text-sm text-slate-ink">
-              {rows.length === 0 ? "No blog posts yet." : "Nothing matches this filter."}
+              {pool.length === 0
+                ? bin
+                  ? "Trash is empty."
+                  : "No blog posts yet."
+                : "Nothing matches this filter."}
             </p>
           )}
         </div>

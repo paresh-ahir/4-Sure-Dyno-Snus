@@ -1,7 +1,8 @@
 import { InvoiceDocument } from "@/components/orders/invoice-document";
 import { requireSession } from "@/lib/auth";
-import { getOrderById, getOrders, getPricing, getUserById } from "@/lib/db";
+import { getOrderById, getOrders, getPricing, getSite, getUserById } from "@/lib/db";
 import { buildInvoice } from "@/lib/invoice";
+import { publicEmails } from "@/lib/site";
 import { isInvoiceAvailable } from "@/lib/orders";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
@@ -16,7 +17,7 @@ export async function generateMetadata({
   const { id } = await params;
   const order = await getOrderById(id);
   if (!order || !isInvoiceAvailable(order.status)) return { title: "Invoice" };
-  const orders = await getOrders();
+  const orders = await getOrders(undefined, "all");
   const invoice = buildInvoice(order, null, [], orders);
   return { title: `Invoice ${invoice.number}` };
 }
@@ -35,10 +36,11 @@ export default async function AdminInvoicePage({
     redirect(`/admin/orders/${order.id}`);
   }
 
-  const [user, pricing, orders] = await Promise.all([
+  const [user, pricing, orders, site] = await Promise.all([
     getUserById(order.userId),
     getPricing(order.province),
-    getOrders(),
+    getOrders(undefined, "all"),
+    getSite(),
   ]);
 
   return (
@@ -48,6 +50,11 @@ export default async function AdminInvoicePage({
       canEdit
       backHref={`/admin/orders/${order.id}`}
       backLabel="Back to order"
+      contact={{
+        address: site.address,
+        phone: site.phone,
+        email: publicEmails(site)[0] || site.email,
+      }}
     />
   );
 }

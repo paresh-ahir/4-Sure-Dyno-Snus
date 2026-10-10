@@ -8,8 +8,8 @@ export default async function AdminOrdersPage() {
   const session = await requireSession("admin");
   if (!session) redirect("/admin/login");
   const [orders, products, users] = await Promise.all([
-    getOrders(),
-    getProducts(false),
+    getOrders(undefined, "all"),
+    getProducts(false, "all"),
     getUsers(),
   ]);
   const images = Object.fromEntries(

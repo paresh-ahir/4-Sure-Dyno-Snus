@@ -259,9 +259,12 @@ export default async function HomePage() {
                   {site.phone} ·{" "}
                   <EmailLinks
                     primary={site.email}
+                    emails={site.emails}
                     separator="dot"
                     className="hover:text-white"
                   />
+                  {" · "}
+                  {site.address}
                 </p>
               </div>
             </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashAction, TrashBinButton, setTrash } from "@/components/admin/trash-bin";
 import { FilterBar, matchesQuery } from "@/components/ui/filter-bar";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
@@ -8,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { FieldErrors } from "@/lib/form-errors";
 import { faqSchema } from "@/lib/form-schemas";
 import type { Faq } from "@/lib/types";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
@@ -47,6 +48,7 @@ export function AdminFaqsClient({ faqs }: { faqs: Faq[] }) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  const [bin, setBin] = useState(false);
 
   function openCreate() {
     setMode("create");
@@ -129,23 +131,27 @@ export function AdminFaqsClient({ faqs }: { faqs: Faq[] }) {
     }
   }
 
-  async function onDelete(id: string) {
-    if (!confirm("Delete this FAQ?")) return;
+  async function onTrash(id: string, restore = false) {
+    if (!restore && !confirm("Move this question to trash?")) return;
     setBusy(true);
     setError("");
-    const res = await fetch(`/api/admin/faqs/${id}`, { method: "DELETE" });
-    setBusy(false);
-    if (!res.ok) {
-      setError("Delete failed");
+    try {
+      await setTrash("faq", id, restore);
+    } catch {
+      setBusy(false);
+      setError(restore ? "Could not restore the question." : "Could not move the question to trash.");
       return;
     }
-    setRows((prev) => prev.filter((row) => row.id !== id));
-    setMessage("FAQ deleted");
+    setBusy(false);
+    const stamp = restore ? null : new Date().toISOString();
+    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, trashedAt: stamp } : row)));
+    setMessage(restore ? "Question restored" : "Question moved to trash");
     router.refresh();
   }
 
   if (mode === "list") {
-    const visible = rows.filter(
+    const pool = rows.filter((faq) => (bin ? faq.trashedAt : !faq.trashedAt));
+    const visible = pool.filter(
       (faq) =>
         (!status || (status === "published" ? faq.published : !faq.published)) &&
         matchesQuery(query, faq.question, faq.answer)
@@ -154,11 +160,21 @@ export function AdminFaqsClient({ faqs }: { faqs: Faq[] }) {
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-ink">
-            {rows.length} question{rows.length === 1 ? "" : "s"}
+            {pool.length} question{pool.length === 1 ? "" : "s"}
+            {bin ? " in trash" : ""}
           </p>
-          <Button onClick={openCreate}>
-            <Plus size={16} /> Add FAQ
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <TrashBinButton
+              open={bin}
+              count={rows.filter((faq) => faq.trashedAt).length}
+              onToggle={() => setBin((current) => !current)}
+            />
+            {!bin && (
+              <Button onClick={openCreate}>
+                <Plus size={16} /> Add FAQ
+              </Button>
+            )}
+          </div>
         </div>
         {message && <p className="text-sm text-cyan">{message}</p>}
         {error && <p className="text-sm text-warn-red">{error}</p>}
@@ -186,23 +202,27 @@ export function AdminFaqsClient({ faqs }: { faqs: Faq[] }) {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => openEdit(faq)}>
-                  <Pencil size={14} /> Edit
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => onDelete(faq.id)}
-                  disabled={busy}
-                >
-                  <Trash2 size={14} /> Delete
-                </Button>
+                {!bin && (
+                  <Button size="sm" variant="outline" onClick={() => openEdit(faq)}>
+                    <Pencil size={14} /> Edit
+                  </Button>
+                )}
+                <TrashAction
+                  trashed={Boolean(faq.trashedAt)}
+                  busy={busy}
+                  onTrash={() => onTrash(faq.id)}
+                  onRestore={() => onTrash(faq.id, true)}
+                />
               </div>
             </article>
           ))}
           {visible.length === 0 && (
             <p className="text-sm text-slate-ink">
-              {rows.length === 0 ? "No questions yet." : "Nothing matches this filter."}
+              {pool.length === 0
+                ? bin
+                  ? "Trash is empty."
+                  : "No questions yet."
+                : "Nothing matches this filter."}
             </p>
           )}
         </div>

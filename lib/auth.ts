@@ -74,7 +74,7 @@ export async function getSession(): Promise<SessionUser | null> {
     const id = payload.sub;
     if (!id) return null;
     const user = await getUserById(id);
-    if (!user || !user.active) return null;
+    if (!user || !user.active || user.trashedAt) return null;
     return toSession(user);
   } catch {
     return null;
@@ -90,7 +90,7 @@ export async function requireSession(role?: UserRole) {
 
 export async function authenticate(email: string, password: string) {
   const user = await getUserByEmail(email);
-  if (!user || !user.active) return null;
+  if (!user || !user.active || user.trashedAt) return null;
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) return null;
   return user;

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminFaqsPage() {
   const session = await requireSession("admin");
   if (!session) redirect("/admin/login");
-  const faqs = await getFaqs(false);
+  const faqs = await getFaqs(false, "all");
 
   return (
     <div>

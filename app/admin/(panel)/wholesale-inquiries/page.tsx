@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminWholesaleInquiriesPage() {
   const session = await requireSession("admin");
   if (!session) redirect("/admin/login");
-  const inquiries = await getWholesaleInquiries();
+  const inquiries = await getWholesaleInquiries("all");
 
   return (
     <div>

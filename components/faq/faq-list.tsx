@@ -12,7 +12,7 @@ export function FaqList({ faqs }: { faqs: Faq[] }) {
   return (
     <div className="mt-8 space-y-4">
       <FilterBar query={query} onQuery={setQuery} placeholder="Search questions" />
-      <div className="space-y-3">
+      <div className="grid items-start gap-3 lg:grid-cols-2">
         {visible.map((faq) => (
           <details key={faq.id} className="surface group rounded-2xl px-5 py-4">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-display text-2xl text-white [&::-webkit-details-marker]:hidden">
@@ -28,7 +28,7 @@ export function FaqList({ faqs }: { faqs: Faq[] }) {
           </details>
         ))}
         {visible.length === 0 && (
-          <p className="text-sm text-slate-ink">
+          <p className="text-sm text-slate-ink lg:col-span-2">
             {faqs.length === 0 ? "No questions yet." : "Nothing matches this filter."}
           </p>
         )}

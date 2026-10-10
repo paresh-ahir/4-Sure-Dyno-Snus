@@ -41,7 +41,11 @@ export default async function ContactPage() {
             <p>
               <span className="font-semibold">Email:</span>
               <span className="mt-1 block">
-                <EmailLinks primary={site.email} className="text-cyan" />
+                <EmailLinks
+                  primary={site.email}
+                  emails={site.emails}
+                  className="text-cyan"
+                />
               </span>
             </p>
             <p>

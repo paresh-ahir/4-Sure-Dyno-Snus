@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashAction, TrashBinButton, setTrash } from "@/components/admin/trash-bin";
 import { OrderItemList } from "@/components/orders/order-item-list";
 import { OrderTotals } from "@/components/orders/order-totals";
 import { FilterBar, matchesQuery } from "@/components/ui/filter-bar";
@@ -27,10 +28,16 @@ export function AdminOrdersClient({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "unverified">("all");
+  const [rows, setRows] = useState(orders);
+  const [bin, setBin] = useState(false);
+  const [filter, setFilter] = useState<"all" | "verified" | "unverified">("all");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
-  const visible = orders.filter((order) => {
+  const pool = rows.filter((order) => (bin ? order.trashedAt : !order.trashedAt));
+  const visible = pool.filter((order) => {
+    if (filter === "verified" && order.profileVerificationStatus !== "verified") {
+      return false;
+    }
     if (filter === "unverified" && order.profileVerificationStatus === "verified") {
       return false;
     }
@@ -56,6 +63,22 @@ export function AdminOrdersClient({
     router.refresh();
   }
 
+  async function onTrash(id: string, restore = false) {
+    if (!restore && !confirm("Move this order to trash?")) return;
+    setBusy(id);
+    try {
+      await setTrash("order", id, restore);
+    } catch {
+      setBusy(null);
+      return;
+    }
+    setBusy(null);
+    const stamp = restore ? null : new Date().toISOString();
+    setRows((current) =>
+      current.map((order) => (order.id === id ? { ...order, trashedAt: stamp } : order))
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -68,11 +91,23 @@ export function AdminOrdersClient({
         </button>
         <button
           type="button"
+          className={`rounded-md px-3 py-2 text-sm font-semibold ${filter === "verified" ? "bg-cyan text-white" : "bg-white/10 text-white"}`}
+          onClick={() => setFilter("verified")}
+        >
+          Verified profiles
+        </button>
+        <button
+          type="button"
           className={`rounded-md px-3 py-2 text-sm font-semibold ${filter === "unverified" ? "bg-cyan text-white" : "bg-white/10 text-white"}`}
           onClick={() => setFilter("unverified")}
         >
           Unverified profiles
         </button>
+        <TrashBinButton
+          open={bin}
+          count={rows.filter((order) => order.trashedAt).length}
+          onToggle={() => setBin((current) => !current)}
+        />
       </div>
       <FilterBar
         query={query}
@@ -152,13 +187,23 @@ export function AdminOrdersClient({
               {busy === order.id && (
                 <span className="text-xs text-cyan">Saving…</span>
               )}
+              <TrashAction
+                trashed={Boolean(order.trashedAt)}
+                busy={busy === order.id}
+                onTrash={() => onTrash(order.id)}
+                onRestore={() => onTrash(order.id, true)}
+              />
             </div>
           </article>
         );
       })}
       {visible.length === 0 && (
         <p className="text-sm text-slate-ink">
-          {orders.length === 0 ? "No orders yet." : "Nothing matches this filter."}
+          {pool.length === 0
+            ? bin
+              ? "Trash is empty."
+              : "No orders yet."
+            : "Nothing matches this filter."}
         </p>
       )}
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { TrashAction, TrashBinButton, setTrash } from "@/components/admin/trash-bin";
 import { FilterBar, matchesQuery } from "@/components/ui/filter-bar";
 import { Badge } from "@/components/ui/badge";
 import { PROFILE_STATUS_LABEL } from "@/lib/profile-status";
@@ -15,19 +16,47 @@ export type RetailerCard = {
   phone: string;
   joined: string;
   status: ProfileStatus;
+  trashedAt?: string | null;
 };
 
 export function AdminRetailersClient({ retailers }: { retailers: RetailerCard[] }) {
+  const [rows, setRows] = useState(retailers);
+  const [bin, setBin] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
-  const visible = retailers.filter(
+  const pool = rows.filter((user) => (bin ? user.trashedAt : !user.trashedAt));
+  const visible = pool.filter(
     (user) =>
       (!status || user.status === status) &&
       matchesQuery(query, user.name, user.company, user.email, user.phone)
   );
 
+  async function onTrash(id: string, restore = false) {
+    if (!restore && !confirm("Move this retailer to trash? They will not be able to sign in.")) return;
+    setBusy(id);
+    try {
+      await setTrash("retailer", id, restore);
+    } catch {
+      setBusy(null);
+      return;
+    }
+    setBusy(null);
+    const stamp = restore ? null : new Date().toISOString();
+    setRows((current) =>
+      current.map((user) => (user.id === id ? { ...user, trashedAt: stamp } : user))
+    );
+  }
+
   return (
     <div className="mt-6 space-y-4">
+      <div className="flex justify-end">
+        <TrashBinButton
+          open={bin}
+          count={rows.filter((user) => user.trashedAt).length}
+          onToggle={() => setBin((current) => !current)}
+        />
+      </div>
       <FilterBar
         query={query}
         onQuery={setQuery}
@@ -64,17 +93,31 @@ export function AdminRetailersClient({ retailers }: { retailers: RetailerCard[] 
             <p className="mt-2 text-xs text-navy/55">
               {user.phone || "No phone"} · Joined {user.joined}
             </p>
-            <Link
-              href={`/admin/retailers/${user.id}`}
-              className="mt-2 inline-block text-sm font-semibold text-cyan"
-            >
-              Review profile
-            </Link>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              {!bin && (
+                <Link
+                  href={`/admin/retailers/${user.id}`}
+                  className="text-sm font-semibold text-cyan"
+                >
+                  Review profile
+                </Link>
+              )}
+              <TrashAction
+                trashed={Boolean(user.trashedAt)}
+                busy={busy === user.id}
+                onTrash={() => onTrash(user.id)}
+                onRestore={() => onTrash(user.id, true)}
+              />
+            </div>
           </div>
         ))}
         {visible.length === 0 && (
           <p className="text-sm text-slate-ink">
-            {retailers.length === 0 ? "No retailers yet." : "Nothing matches this filter."}
+            {pool.length === 0
+              ? bin
+                ? "Trash is empty."
+                : "No retailers yet."
+              : "Nothing matches this filter."}
           </p>
         )}
       </div>
